@@ -22,5 +22,5 @@ fi
 # Build the Docker image with the directory name as a build argument
 docker build --build-arg DIRECTORY_NAME=$DIRECTORY -t bind-server .
 
-# Optionally, you can run the container here as well.
+# Run the container
 docker run -d --name bind-server -p 53:53/udp -p 53:53/tcp bind-server
