@@ -32,7 +32,7 @@ zone "{domain_name}" {{
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate named.conf from a directory of .conf files")
+    parser = argparse.ArgumentParser(description="Generate named.conf from a directory of zone files")
     parser.add_argument("directory", default="zones", help="Directory containing .conf zone files")
     parser.add_argument("--output", default="named.conf", help="Path to the output named.conf file")
     
