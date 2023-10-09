@@ -26,6 +26,7 @@ def initiate_zone_export(client, zone_names):
     payload = {
         "zoneNames": zone_names
     }
+    # For PTR records with "/" in them...
     pstring = json.dumps(payload).replace('/', '\\u002F')
     response = client.post("/v2/zones/export", pstring)
     return response["task_id"]
@@ -35,6 +36,8 @@ def poll_task_status(client, task_id):
         response = client.get(f"/tasks/{task_id}")
         if response["code"] == "COMPLETE":
             break
+        if response["code"] == "ERROR":
+            raise Exception(f"There was an error exporting the zones: {json.dumps(response)}")
         time.sleep(10)
     return response
 
@@ -45,7 +48,9 @@ def save_zone_to_file(zone_name, content):
     """Save the zone content to an individual file in /zones directory."""
     if not os.path.exists('zones'):
         os.makedirs('zones')
-    with open(f"zones/{zone_name}.conf", "w") as f:
+    # Sometimes reverse DNS records have a "/" in them and it is a pain
+    formatted_name = zone_name.replace('/', '_')
+    with open(f"zones/{formatted_name}.conf", "w") as f:
         f.write(content)
 
 def get_rrsets_for_zone(client, zone_name):
@@ -85,7 +90,7 @@ def main(username=None, password=None, token=None, combined_file=False, json_out
     zones = get_zones(client)
     zone_names = [z['properties']['name'] for z in zones]
     # You can use this to exclude certain zones from the script
-    #zone_names = [zone for zone in zone_names if zone != "00000zkchawxh1.com." and zone != "hyperdns.ninja."]
+    zone_names = [zone for zone in zone_names if zone != "00000zkchawxh1.com." and zone != "hyperdns.ninja."]
     combined_zone_data = []
 
     if json_output:
