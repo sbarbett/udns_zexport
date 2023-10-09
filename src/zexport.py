@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Enforce the rules you specified
+    # Enforce the rules specified
     if args.token:
         if args.username or args.password:
             parser.error("You cannot provide a token along with a username or password.")
