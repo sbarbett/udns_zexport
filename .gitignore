@@ -1,0 +1,12 @@
+# Exclude this annoying macOS file
+.DS_Store
+
+# Exclude zones directories
+/zones/**
+/docker/zones/**
+
+# Exclude some file types
+*.csv
+*.json
+*.conf
+
