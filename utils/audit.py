@@ -7,6 +7,7 @@ import sys
 import argparse
 import random
 from termcolor import colored
+from argparse import RawTextHelpFormatter
 
 # Define a list of colors supported by termcolor
 COLORS = ["grey", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
@@ -156,7 +157,7 @@ if __name__ == "__main__":
     6. Analysis of TXT records, including SPF, DKIM, and DMARC.
     7. Security checks to identify DNSSEC enabled zones.
     8. Miscellaneous checks, e.g., IPv6 adoption.
-    ''')
+    ''', formatter_class=RawTextHelpFormatter)
     
     parser.add_argument('--file', default='zones_data.json', 
                         help='Path to the JSON file containing DNS zones data. Defaults to "zones_data.json".')
