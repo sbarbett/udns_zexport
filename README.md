@@ -19,6 +19,10 @@ To export your zone files:
 ./src/zexport.py --username $UDNS_UNAME --password $UDNS_PW
 ```
 
+#### Debug Mode
+
+By default, this script will request zone files in batches of 250. If there's an issue with a single zone in the whole of the batch request, however, the entire export will fail. To work around this, use the `--debug` switch. Debug mode will, instead, download each zone individually and display warnings for any that fail. Obviously, this takes much longer.
+
 ### Docker BIND Server
 
 To quickly start a BIND server with the exported zone files:

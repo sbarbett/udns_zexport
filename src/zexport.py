@@ -11,6 +11,20 @@ import json
 import os
 import datetime
 
+class CustomHelpParser(argparse.ArgumentParser):
+    def print_help(self, *args, **kwargs):
+        ascii_art = """
+__     ______     _______   _______ ___________ _____ 
+\\ \\   |___  /    |  ___\\ \\ / | ___ |  _  | ___ |_   _|
+ \\ \\     / ______| |__  \\ V /| |_/ | | | | |_/ / | |  
+  > >   / |______|  __| /   \\|  __/| | | |    /  | |  
+ / /  ./ /___    | |___/ /^\\ | |   \\ \\_/ | |\\ \\  | |  
+/_/   \\_____/    \\____/\\/   \\_|    \\___/\\_| \\_| \\_/  
+ 
+"""
+        print(ascii_art)
+        super().print_help(*args, **kwargs)
+
 def get_zones(client):
     zones = []
     cursor = ""
@@ -31,13 +45,18 @@ def initiate_zone_export(client, zone_names):
     response = client.post("/v2/zones/export", pstring)
     return response["task_id"]
 
-def poll_task_status(client, task_id):
+def poll_task_status(client, task_id, debug=False):
     while True:
         response = client.get(f"/tasks/{task_id}")
         if response["code"] == "COMPLETE":
             break
         if response["code"] == "ERROR":
-            raise Exception(f"There was an error exporting the zones: {json.dumps(response)}")
+            if debug:
+                print(f"Warning: An error occurred processing this zone: {json.dumps(response)}")
+                return None
+            else:
+                print("Warning: There was an issue with a domain in your batch request. Consider using --debug mode.")
+                raise Exception(f"Error message: {json.dumps(response)}")
         time.sleep(10)
     return response
 
@@ -89,8 +108,8 @@ def main(username=None, password=None, token=None, combined_file=False, json_out
     
     zones = get_zones(client)
     zone_names = [z['properties']['name'] for z in zones]
-    # You can use this to exclude certain zones from the script
-    zone_names = [zone for zone in zone_names if zone != "00000zkchawxh1.com." and zone != "hyperdns.ninja."]
+    # If you want to exclude particular domains from your request, add them here
+    # zone_names = [zone for zone in zone_names if zone != "example1.com." and zone != "example2.com."]
     combined_zone_data = []
 
     if json_output:
@@ -108,28 +127,38 @@ def main(username=None, password=None, token=None, combined_file=False, json_out
             }, out_file, indent=4)
         return
 
-    for i in tqdm(range(0, len(zone_names), 250), desc="Processing zones"):
-        chunk = zone_names[i:i+249]
-        task_id = initiate_zone_export(client, chunk)
-        poll_task_status(client, task_id)
-        zip_data = download_exported_data(client, task_id)
+    if args.debug or len(zone_names) == 1:
+        for zone in tqdm(zone_names, desc="Processing zones individually"):
+            task_id = initiate_zone_export(client, [zone])
+            status = poll_task_status(client, task_id, debug=True)
+            if not status:  # If the task status returned None (meaning there was an error)
+                continue
+            data = download_exported_data(client, task_id)
+            save_zone_to_file(zone, data)
+            
+    else:
+        for i in tqdm(range(0, len(zone_names), 250), desc="Processing zones"):
+            chunk = zone_names[i:i+249]
+            task_id = initiate_zone_export(client, chunk)
+            poll_task_status(client, task_id)
+            zip_data = download_exported_data(client, task_id)
 
-        with zipfile.ZipFile(BytesIO(zip_data), 'r') as zip_ref:
-            for file in zip_ref.namelist():
-                domain_name = file.replace(".txt", "")
-                with zip_ref.open(file, 'r') as textf:
-                    content = textf.read().decode('utf-8')
-                    if combined_file:
-                        combined_zone_data.append(content)
-                    else:
-                        save_zone_to_file(domain_name, content)
+            with zipfile.ZipFile(BytesIO(zip_data), 'r') as zip_ref:
+                for file in zip_ref.namelist():
+                    domain_name = file.replace(".txt", "")
+                    with zip_ref.open(file, 'r') as textf:
+                        content = textf.read().decode('utf-8')
+                        if combined_file:
+                            combined_zone_data.append(content)
+                        else:
+                            save_zone_to_file(domain_name, content)
 
     if combined_file:
         with open("combined_zone_file.conf", "w") as out_file:
             out_file.write("\n".join(combined_zone_data))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="UltraDNS Zone Exporter")
+    parser = CustomHelpParser(description="UltraDNS Zone Exporter")
 
     # Group authentication arguments
     auth_group = parser.add_argument_group('authentication')
@@ -138,6 +167,7 @@ if __name__ == "__main__":
     token_arg = parser.add_argument("--token", help="Directly pass the Bearer token")
     parser.add_argument("--combined-file", action="store_true", help="Combine all zone data into a single file")
     parser.add_argument("--json", action="store_true", help="Save RRsets for all zones into a single JSON object")
+    parser.add_argument("--debug", action="store_true", help="Fetch zones individually to identify potential errors.")
 
     args = parser.parse_args()
 
