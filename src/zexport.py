@@ -29,7 +29,7 @@ def get_zones(client):
     zones = []
     cursor = ""
     while True:
-        response = client.get(f"/v2/zones?limit=1000&cursor={cursor}")
+        response = client.get(f"/v3/zones?limit=1000&cursor={cursor}")
         zones.extend(response.get("zones", []))
         cursor = response["cursorInfo"].get("next")
         if not cursor:
@@ -61,14 +61,15 @@ def poll_task_status(client, task_id, debug=False):
     return response
 
 def download_exported_data(client, task_id):
-    return client.get(f"/tasks/{task_id}/result", content_type="text/plain")
+    return client.get(f"/tasks/{task_id}/result")
 
 def save_zone_to_file(zone_name, content):
     """Save the zone content to an individual file in /zones directory."""
     if not os.path.exists('zones'):
         os.makedirs('zones')
     # Sometimes reverse DNS records have a "/" in them and it is a pain
-    formatted_name = zone_name.replace('/', '_')
+    # Also, eliminate the trailing dot
+    formatted_name = zone_name.replace('/', '_').rstrip('.')
     with open(f"zones/{formatted_name}.conf", "w") as f:
         f.write(content)
 

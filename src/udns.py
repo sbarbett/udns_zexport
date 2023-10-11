@@ -53,36 +53,48 @@ class UltraApi:
         return self._call(uri, "POST", payload=payload)
 
     def get(self, uri, params={}, content_type=None):
+        # GET requests should always be x-www-form-urlencoded, but the UDNS endpoints inexplicably require "application/json"
         if content_type:
             return self._call(uri, "GET", params=params, content_type=content_type)
         else:
             return self._call(uri, "GET", params=params)
 
+    def delete(self, uri, params={}):
+        # DELETE requests should, also, always be x-www-form-urlencoded
+        return self._call(uri, "DELETE", params=params, content_type="x-www-form-urlencoded")
+
     def _call(self, uri, method, params=None, payload=None, retry=True, content_type="application/json"):
         resp = requests.request(method, self.base_url+uri, params=params, data=payload, headers=self._headers(content_type))
 
         if resp.status_code == requests.codes.NO_CONTENT:
+            # DELETE requests and a few other things return no response body
             return {}
 
         if resp.headers['Content-Type'] == 'application/zip':
+            # Return the bytes. Zone exports return zip files
             return resp.content
 
         if resp.headers['Content-Type'] == 'text/plain':
+            # Return plain text. If you request a zone export with 1 domain, it returns a plain text zone file
             return resp.text
 
         if resp.status_code == requests.codes.ACCEPTED:
+            # If there's a task ID in the header, add it to the JSON so the result can be retrieved
             response_data = resp.json()
             response_data.update({"task_id": resp.headers['X-Task-Id']})
             return response_data
 
         if resp.status_code == 401 and retry:
+            # Refresh the token if it expired, then try again
             self._refresh()
             return self._call(uri, method, params, payload, False)
 
+        # Raise any error statuses. Since the UDNS API also produces a response body in most cases, print that too
         try:
             resp.raise_for_status()
         except Exception as e:
             print(resp.text)
             raise
 
+        # Everything else should be JSON (hopefully)
         return resp.json()
