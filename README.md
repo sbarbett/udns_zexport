@@ -90,7 +90,10 @@ $ ./utils/audit.py --html
 
 ## Prerequisites
 
+This project uses the [ultra_auth](https://github.com/sbarbett/ultra_auth) module.
+
 - Python dependencies: 
+    * ultra_auth
     * tqdm
     * requests
     * termcolor

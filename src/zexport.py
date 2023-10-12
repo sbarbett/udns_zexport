@@ -6,7 +6,7 @@ import zipfile
 from io import BytesIO
 import time
 from tqdm import tqdm
-from udns import UltraApi
+from ultra_auth import UltraApi
 import json
 import os
 import datetime
@@ -42,7 +42,7 @@ def initiate_zone_export(client, zone_names):
     }
     # For PTR records with "/" in them...
     pstring = json.dumps(payload).replace('/', '\\u002F')
-    response = client.post("/v2/zones/export", pstring)
+    response = client.post("/v2/zones/export", pstring, plain_text=True)
     return response["task_id"]
 
 def poll_task_status(client, task_id, debug=False):
@@ -104,8 +104,11 @@ def get_rrsets_for_zone(client, zone_name):
     return all_rrsets
 
 
-def main(username=None, password=None, token=None, combined_file=False, json_output=False):
-    client = UltraApi(username, password, token)
+def main(username=None, password=None, token=None, refresh_token=None, combined_file=False, json_output=False):
+    if token:
+        client = UltraApi(token, refresh_token, True)
+    else:
+        client = UltraApi(username, password)
     
     zones = get_zones(client)
     zone_names = [z['properties']['name'] for z in zones]
@@ -165,7 +168,9 @@ if __name__ == "__main__":
     auth_group = parser.add_argument_group('authentication')
     auth_group.add_argument("--username", help="Username for authentication")
     auth_group.add_argument("--password", help="Password for authentication")
-    token_arg = parser.add_argument("--token", help="Directly pass the Bearer token")
+    auth_group.add_argument("--token", help="Directly pass the Bearer token")
+    auth_group.add_argument("--refresh-token", help="Pass the Refresh token (optional with --token)")
+    
     parser.add_argument("--combined-file", action="store_true", help="Combine all zone data into a single file")
     parser.add_argument("--json", action="store_true", help="Save RRsets for all zones into a single JSON object")
     parser.add_argument("--debug", action="store_true", help="Fetch zones individually to identify potential errors.")
@@ -178,7 +183,10 @@ if __name__ == "__main__":
             parser.error("You cannot provide a token along with a username or password.")
     elif args.username and args.password:
         pass
+    elif args.username or args.password:  # If one of them is provided but not both
+        parser.error("You must provide both a username and password.")
     else:
         parser.error("You must provide either a token, or both a username and password.")
 
-    main(args.username, args.password, args.token, args.combined_file, args.json)
+    main(args.username, args.password, args.token, args.refresh_token, args.combined_file, args.json)
+

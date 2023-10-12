@@ -1,3 +1,4 @@
-requests
+ultra_auth
 tqdm
 termcolor
+requests
