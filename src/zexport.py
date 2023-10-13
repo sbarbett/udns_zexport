@@ -166,14 +166,14 @@ if __name__ == "__main__":
 
     # Group authentication arguments
     auth_group = parser.add_argument_group('authentication')
-    auth_group.add_argument("--username", help="Username for authentication")
-    auth_group.add_argument("--password", help="Password for authentication")
-    auth_group.add_argument("--token", help="Directly pass the Bearer token")
-    auth_group.add_argument("--refresh-token", help="Pass the Refresh token (optional with --token)")
+    auth_group.add_argument("-u", "--username", help="Username for authentication")
+    auth_group.add_argument("-p", "--password", help="Password for authentication")
+    auth_group.add_argument("-t", "--token", help="Directly pass the Bearer token")
+    auth_group.add_argument("-r", "--refresh-token", help="Pass the Refresh token (optional with --token)")
     
-    parser.add_argument("--combined-file", action="store_true", help="Combine all zone data into a single file")
-    parser.add_argument("--json", action="store_true", help="Save RRsets for all zones into a single JSON object")
-    parser.add_argument("--debug", action="store_true", help="Fetch zones individually to identify potential errors.")
+    parser.add_argument("-c", "--combined-file", action="store_true", help="Combine all zone data into a single file")
+    parser.add_argument("-j", "--json", action="store_true", help="Save RRsets for all zones into a single JSON object")
+    parser.add_argument("-d", "--debug", action="store_true", help="Fetch zones individually to identify potential errors.")
 
     args = parser.parse_args()
 
