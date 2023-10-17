@@ -4,6 +4,7 @@
 # Exclude zones directories
 /zones/**
 /docker/zones/**
+.idea/**
 
 # Exclude some file types
 *.csv

@@ -16,12 +16,16 @@ This tool provides a programmatic way to export _all_ zone files from your Ultra
 To export your zone files:
 
 ```bash
-./src/zexport.py --username $UDNS_UNAME --password $UDNS_PW
+./src/zexport.py -u $UDNS_UNAME -p $UDNS_PW
 ```
 
 #### Debug Mode
 
-By default, this script will request zone files in batches of 250. If there's an issue with a single zone in the whole of the batch request, however, the entire export will fail. To work around this, use the `--debug` switch. Debug mode will, instead, download each zone individually and display warnings for any that fail. Obviously, this takes much longer.
+By default, this script will request zone files in batches of 250. If there's an issue with a single zone in the whole of the batch request, however, the entire export will fail. To work around this, use the `-d-` or `--debug` switch. Debug mode will, instead, download each zone individually and display warnings for any that fail. Obviously, this takes much longer.
+
+#### Custom Input File
+
+Optionally, you may specify a text file containing a list of zones to export. The file is expected to be in your working directory. Each zone should be separated by line breaks. I included zoneslist.txt as a basic formatting example. The switch is `-z` or `--zones-file`.
 
 ### Docker BIND Server
 
@@ -44,7 +48,7 @@ dig @localhost testingsomethingout.biz
 To export zones in JSON format:
 
 ```bash
-./src/zexport.py --username $UDNS_UNAME --password $UDNS_PW --json
+./src/zexport.py -u $UDNS_UNAME -p $UDNS_PW -j
 ```
 
 Convert the exported JSON to CSV:

@@ -36,6 +36,10 @@ def get_zones(client):
             break
     return zones
 
+def get_zones_from_file(filename):
+    with open(filename, "r") as f:
+        return [line.strip() for line in f.readlines() if line.strip()]
+
 def initiate_zone_export(client, zone_names):
     payload = {
         "zoneNames": zone_names
@@ -104,14 +108,18 @@ def get_rrsets_for_zone(client, zone_name):
     return all_rrsets
 
 
-def main(username=None, password=None, token=None, refresh_token=None, combined_file=False, json_output=False):
+def main(username=None, password=None, token=None, refresh_token=None, combined_file=False, json_output=False, debug=False, zones_file=None):
     if token:
         client = UltraApi(token, refresh_token, True)
     else:
         client = UltraApi(username, password)
-    
-    zones = get_zones(client)
-    zone_names = [z['properties']['name'] for z in zones]
+
+    if zones_file:
+        zone_names = get_zones_from_file(zones_file)
+    else:
+        zones = get_zones(client)
+        zone_names = [z['properties']['name'] for z in zones]
+
     # If you want to exclude particular domains from your request, add them here
     # zone_names = [zone for zone in zone_names if zone != "example1.com." and zone != "example2.com."]
     combined_zone_data = []
@@ -131,7 +139,7 @@ def main(username=None, password=None, token=None, refresh_token=None, combined_
             }, out_file, indent=4)
         return
 
-    if args.debug or len(zone_names) == 1:
+    if debug or len(zone_names) == 1:
         for zone in tqdm(zone_names, desc="Processing zones individually"):
             task_id = initiate_zone_export(client, [zone])
             status = poll_task_status(client, task_id, debug=True)
@@ -174,6 +182,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--combined-file", action="store_true", help="Combine all zone data into a single file")
     parser.add_argument("-j", "--json", action="store_true", help="Save RRsets for all zones into a single JSON object")
     parser.add_argument("-d", "--debug", action="store_true", help="Fetch zones individually to identify potential errors.")
+    parser.add_argument("-z", "--zones-file", help="Specify a file containing a list of zones to export (one per line). If not specified, all zones will be exported.")
 
     args = parser.parse_args()
 
@@ -188,5 +197,5 @@ if __name__ == "__main__":
     else:
         parser.error("You must provide either a token, or both a username and password.")
 
-    main(args.username, args.password, args.token, args.refresh_token, args.combined_file, args.json)
+    main(args.username, args.password, args.token, args.refresh_token, args.combined_file, args.json, args.debug, args.zones_file)
 
