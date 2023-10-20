@@ -46,7 +46,7 @@ def initiate_zone_export(client, zone_names):
     }
     # For PTR records with "/" in them...
     pstring = json.dumps(payload).replace('/', '\\u002F')
-    response = client.post("/v2/zones/export", pstring, plain_text=True)
+    response = client.post("/v3/zones/export", pstring, plain_text=True)
     return response["task_id"]
 
 def poll_task_status(client, task_id, debug=False):
@@ -107,6 +107,34 @@ def get_rrsets_for_zone(client, zone_name):
 
     return all_rrsets
 
+def get_web_forwards_for_zone(client, zone_name):
+    """Fetch all web forwards for the specified zone."""
+    all_web_forwards = []
+    offset = 0
+    limit = 100  # Maximum allowed by the API
+
+    while True:
+        try:
+            response = client.get(f"/v3/zones/{zone_name}/webforwards?limit={limit}&offset={offset}")
+            web_forwards = response.get("webForwards", [])
+            all_web_forwards.extend(web_forwards)
+
+            # Get total count and number of returned records to determine if there's another page
+            total_count = response["resultInfo"]["totalCount"]
+            returned_count = response["resultInfo"]["returnedCount"]
+            offset += returned_count
+
+            if offset >= total_count:
+                break
+
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:  # Handle 404, which means no web forwards found for this domain
+                break  # Exit the loop and return an empty list
+            else:
+                print(f"Error: Unable to fetch web forwards for {zone_name}. HTTP Error: {e.response.status_code}.")
+                raise
+
+    return all_web_forwards
 
 def main(username=None, password=None, token=None, refresh_token=None, combined_file=False, json_output=False, debug=False, zones_file=None):
     if token:
@@ -129,7 +157,15 @@ def main(username=None, password=None, token=None, refresh_token=None, combined_
 
         for zone in tqdm(zone_names, desc="Fetching RRsets for zones"):
             rrsets = get_rrsets_for_zone(client, zone)
-            zones_data.append({"zoneName": zone, "rrSets": rrsets})
+            # Exclude system-generated A records
+            rrsets = [record for record in rrsets if not (
+                    record["rrtype"] == "A (1)" and
+                    "rdata" in record and
+                    record["rdata"][0] in ["204.74.99.100", "204.74.99.101", "204.74.99.102", "204.74.99.103"]
+            )]
+
+            web_forwards = get_web_forwards_for_zone(client, zone)
+            zones_data.append({"zoneName": zone, "rrSets": rrsets, "webForwards": web_forwards})
 
         with open("zones_data.json", "w") as out_file:
             json.dump({
