@@ -154,17 +154,32 @@ def main(username=None, password=None, token=None, refresh_token=None, combined_
 
     if json_output:
         zones_data = []
+        web_forward_ips = ["204.74.99.100", "204.74.99.101", "204.74.99.102", "204.74.99.103"]
 
         for zone in tqdm(zone_names, desc="Fetching RRsets for zones"):
             rrsets = get_rrsets_for_zone(client, zone)
-            # Exclude system-generated A records
+
+            # Check if any of the system-generated A records are present in the RRsets
+            should_fetch_web_forwards = any(
+                record for record in rrsets if (
+                        record["rrtype"] == "A (1)" and
+                        "rdata" in record and
+                        record["rdata"][0] in web_forward_ips
+                )
+            )
+
+            # If a system-generated A record is detected, fetch the web forwards
+            web_forwards = []
+            if should_fetch_web_forwards:
+                web_forwards = get_web_forwards_for_zone(client, zone)
+
+            # Exclude system-generated A records for final storage
             rrsets = [record for record in rrsets if not (
                     record["rrtype"] == "A (1)" and
                     "rdata" in record and
-                    record["rdata"][0] in ["204.74.99.100", "204.74.99.101", "204.74.99.102", "204.74.99.103"]
+                    record["rdata"][0] in web_forward_ips
             )]
 
-            web_forwards = get_web_forwards_for_zone(client, zone)
             zones_data.append({"zoneName": zone, "rrSets": rrsets, "webForwards": web_forwards})
 
         with open("zones_data.json", "w") as out_file:
