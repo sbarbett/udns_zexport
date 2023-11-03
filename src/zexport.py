@@ -36,6 +36,9 @@ def get_zones(client):
             break
     return zones
 
+def get_zone_properties(client, zone_name):
+    return client.get(f"/v3/zones/{zone_name}")
+
 def get_zones_from_file(filename):
     with open(filename, "r") as f:
         return [line.strip() for line in f.readlines() if line.strip()]
@@ -142,45 +145,74 @@ def main(username=None, password=None, token=None, refresh_token=None, combined_
     else:
         client = UltraApi(username, password)
 
-    if zones_file:
-        zone_names = get_zones_from_file(zones_file)
-    else:
-        zones = get_zones(client)
-        zone_names = [z['properties']['name'] for z in zones]
+    zones = get_zones(client)
 
-    # If you want to exclude particular domains from your request, add them here
-    # zone_names = [zone for zone in zone_names if zone != "example1.com." and zone != "example2.com."]
-    combined_zone_data = []
+    if zones_file:
+        zone_file_names = get_zones_from_file(zones_file)
+        # Ensure zone_names are stripped of trailing dots for comparison
+        zone_file_names = [name.rstrip('.') for name in zone_file_names]
+        # Iterate in reverse to safely remove items while iterating
+        for i in reversed(range(len(zones))):
+            zone_name = zones[i]['properties']['name'].rstrip('.')
+            if zone_name not in zone_file_names:
+                del zones[i]
 
     if json_output:
         zones_data = []
         web_forward_ips = ["204.74.99.100", "204.74.99.101", "204.74.99.102", "204.74.99.103"]
 
-        for zone in tqdm(zone_names, desc="Fetching RRsets for zones"):
-            rrsets = get_rrsets_for_zone(client, zone)
+        for zone in tqdm(zones, desc="Fetching data for zones"):
+            zone_name = zone["properties"]["name"]
+            zone_type = zone["properties"]["type"]
+            if zone_type == "SECONDARY":
+                zone_properties = get_zone_properties(client, zone_name)
+                primary_ns = zone_properties["primaryNameServers"]
+                zone_secondary_data = {
+                    "zoneName": zone_name,
+                    "type": "SECONDARY",
+                    "primaryNameServers": primary_ns
+                }
+                zones_data.append(zone_secondary_data)
+            elif zone_type == "ALIAS":
+                zone_alias_data = {
+                    "zoneName": zone["properties"]["name"],
+                    "type": "ALIAS",
+                    "originalZoneName": zone["originalZoneName"]
+                }
+                zones_data.append(zone_alias_data)
+            else:
+                rrsets = get_rrsets_for_zone(client, zone_name)
 
-            # Check if any of the system-generated A records are present in the RRsets
-            should_fetch_web_forwards = any(
-                record for record in rrsets if (
+                # Check if any of the system-generated A records are present in the RRsets
+                should_fetch_web_forwards = any(
+                    record for record in rrsets if (
+                            record["rrtype"] == "A (1)" and
+                            "rdata" in record and
+                            record["rdata"][0] in web_forward_ips
+                    )
+                )
+
+                # If a system-generated A record is detected, fetch the web forwards
+                web_forwards = []
+                if should_fetch_web_forwards:
+                    web_forwards = get_web_forwards_for_zone(client, zone_name)
+
+                # Exclude system-generated A records for final storage
+                rrsets = [record for record in rrsets if not (
                         record["rrtype"] == "A (1)" and
                         "rdata" in record and
                         record["rdata"][0] in web_forward_ips
-                )
-            )
+                )]
 
-            # If a system-generated A record is detected, fetch the web forwards
-            web_forwards = []
-            if should_fetch_web_forwards:
-                web_forwards = get_web_forwards_for_zone(client, zone)
+                zones_primary_data = {
+                    "zoneName": zone_name,
+                    "type": "PRIMARY",
+                    "rrSets": rrsets
+                }
+                if web_forwards:
+                    zones_primary_data.append({"webForwards": web_forwards})
 
-            # Exclude system-generated A records for final storage
-            rrsets = [record for record in rrsets if not (
-                    record["rrtype"] == "A (1)" and
-                    "rdata" in record and
-                    record["rdata"][0] in web_forward_ips
-            )]
-
-            zones_data.append({"zoneName": zone, "rrSets": rrsets, "webForwards": web_forwards})
+                zones_data.append(zones_primary_data)
 
         with open("zones_data.json", "w") as out_file:
             json.dump({
@@ -189,6 +221,11 @@ def main(username=None, password=None, token=None, refresh_token=None, combined_
                 "zones": zones_data
             }, out_file, indent=4)
         return
+
+    zone_names = [z['properties']['name'] for z in zones]
+    # If you want to exclude particular domains from your request, add them here
+    # zone_names = [zone for zone in zone_names if zone != "example1.com." and zone != "example2.com."]
+    combined_zone_data = []
 
     if debug or len(zone_names) == 1:
         for zone in tqdm(zone_names, desc="Processing zones individually"):
