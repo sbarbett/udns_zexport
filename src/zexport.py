@@ -210,7 +210,7 @@ def main(username=None, password=None, token=None, refresh_token=None, combined_
                     "rrSets": rrsets
                 }
                 if web_forwards:
-                    zones_primary_data.append({"webForwards": web_forwards})
+                    zones_primary_data["webForwards"] = web_forwards
 
                 zones_data.append(zones_primary_data)
 
