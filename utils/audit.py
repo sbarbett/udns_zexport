@@ -85,30 +85,40 @@ def ipv6_adoption(zones):
     return sum(1 for zone in zones for rrset in zone['rrSets'] if rrset['rrtype'].startswith("AAAA"))
 
 def generate_audit_report(zones):
+    primary_zone_count = sum(1 for zone in zones if zone['type'] == 'PRIMARY')
+    secondary_zone_count = sum(1 for zone in zones if zone['type'] == 'SECONDARY')
+    alias_zone_count = sum(1 for zone in zones if zone['type'] == 'ALIAS')
+    
+    # Safely compute the total records for zones that have 'rrSets'
+    total_records = sum(len(zone['rrSets']) for zone in zones if 'rrSets' in zone)
+
     report = {
         "General Information": {
             "Total Zones": len(zones),
-            "Total Records": sum(len(zone['rrSets']) for zone in zones),
+            "Total PRIMARY Zones": primary_zone_count,
+            "Total SECONDARY Zones": secondary_zone_count,
+            "Total ALIAS Zones": alias_zone_count,
+            "Total Records": total_records,
             "Date of Report": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         },
-        "Record Types Distribution": record_type_distribution(zones),
+        "Record Types Distribution": record_type_distribution([zone for zone in zones if 'rrSets' in zone]),
         "Domain Analysis": {
-            "Subdomain Count": subdomain_count(zones),
-            "Deepest Subdomain": deepest_subdomain(zones)
+            "Subdomain Count": subdomain_count([zone for zone in zones if 'rrSets' in zone]),
+            "Deepest Subdomain": deepest_subdomain([zone for zone in zones if 'rrSets' in zone])
         },
         "MX Records Analysis": {
-            "MX Distribution": mx_distribution(zones),
-            "Priority Distribution": mx_priority_distribution(zones)
+            "MX Distribution": mx_distribution([zone for zone in zones if 'rrSets' in zone]),
+            "Priority Distribution": mx_priority_distribution([zone for zone in zones if 'rrSets' in zone])
         },
         "CNAME Records Analysis": {
-            "Longest CNAME Chain": longest_cname_chain(zones)
+            "Longest CNAME Chain": longest_cname_chain([zone for zone in zones if 'rrSets' in zone])
         },
-        "TXT Records Analysis": txt_records_analysis(zones),
+        "TXT Records Analysis": txt_records_analysis([zone for zone in zones if 'rrSets' in zone]),
         "Security Checks": {
-            "DNSSEC Enabled Zones": dnssec_enabled_zones(zones)
+            "DNSSEC Enabled Zones": dnssec_enabled_zones([zone for zone in zones if 'rrSets' in zone])
         },
         "Miscellaneous Checks": {
-            "IPv6 Adoption": ipv6_adoption(zones)
+            "IPv6 Adoption": ipv6_adoption([zone for zone in zones if 'rrSets' in zone])
         }
     }
     return report

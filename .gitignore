@@ -5,6 +5,7 @@
 /zones/**
 /docker/zones/**
 .idea/**
+/venv/**
 
 # Exclude some file types
 *.csv
