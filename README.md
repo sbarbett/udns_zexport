@@ -94,10 +94,10 @@ $ ./utils/audit.py --html
 
 ## Prerequisites
 
-This project uses the [ultra_auth](https://github.com/sbarbett/ultra_auth) module.
+This project uses the [ultra_rest_client](https://github.com/ultradns/python_rest_api_client) module.
 
 - Python dependencies: 
-    * ultra_auth
+    * ultra_rest_client
     * tqdm
     * requests
     * termcolor

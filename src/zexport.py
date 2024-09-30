@@ -6,7 +6,7 @@ import zipfile
 from io import BytesIO
 import time
 from tqdm import tqdm
-from ultra_auth import UltraApi
+from ultra_rest_client.connection import RestApiConnection
 import json
 import os
 import datetime
@@ -49,7 +49,7 @@ def initiate_zone_export(client, zone_names):
     }
     # For PTR records with "/" in them...
     pstring = json.dumps(payload).replace('/', '\\u002F')
-    response = client.post("/v3/zones/export", pstring, plain_text=True)
+    response = client.post("/v3/zones/export", pstring)
     return response["task_id"]
 
 def poll_task_status(client, task_id, debug=False):
@@ -68,7 +68,8 @@ def poll_task_status(client, task_id, debug=False):
     return response
 
 def download_exported_data(client, task_id):
-    return client.get(f"/tasks/{task_id}/result")
+    result = client.get(f"/tasks/{task_id}/result")
+    return result
 
 def save_zone_to_file(zone_name, content):
     """Save the zone content to an individual file in /zones directory."""
@@ -88,7 +89,7 @@ def get_rrsets_for_zone(client, zone_name):
 
     while True:
         try:
-            response = client.get(f"/zones/{zone_name}/rrsets?limit={limit}&offset={offset}")
+            response = client.get(f"/v3/zones/{zone_name}/rrsets?limit={limit}&offset={offset}")
             rrsets = response.get("rrSets", [])
             all_rrsets.extend(rrsets)
 
@@ -139,11 +140,13 @@ def get_web_forwards_for_zone(client, zone_name):
 
     return all_web_forwards
 
-def main(username=None, password=None, token=None, refresh_token=None, combined_file=False, json_output=False, debug=False, zones_file=None):
+def main(username=None, password=None, token=None, refresh_token="", combined_file=False, json_output=False, debug=False, zones_file=None):
+    client = RestApiConnection()
     if token:
-        client = UltraApi(token, refresh_token, True)
+        client.access_token = token
+        client.refresh_token = refresh_token
     else:
-        client = UltraApi(username, password)
+        client.auth(username, password)
 
     zones = get_zones(client)
 
