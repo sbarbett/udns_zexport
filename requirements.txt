@@ -1,4 +1,4 @@
-ultra_auth
+ultra_rest_client
 tqdm
 termcolor
 requests
